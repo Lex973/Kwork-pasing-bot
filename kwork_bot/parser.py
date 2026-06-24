@@ -1,11 +1,19 @@
 import asyncio
 import logging
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from bs4 import BeautifulSoup
-from playwright.async_api import async_playwright
-from playwright_stealth import stealth
+from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
+from playwright_stealth import stealth_async
 from kwork_bot.config import KWORK_URL
 
 logger = logging.getLogger(__name__)
+
+
+def _base_url(full_url):
+    parsed = urlparse(full_url)
+    category = parse_qs(parsed.query).get("c", ["15"])[0]
+    return urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", urlencode({"c": category}), ""))
+
 
 class KworkParser:
     def __init__(self):
@@ -23,21 +31,17 @@ class KworkParser:
     async def get_page_content(self, url):
         await self.init_browser()
         page = await self.context.new_page()
+        await stealth_async(page)
         try:
-            # Go to base category URL first
-            base_url = "https://kwork.ru/projects?c=15"
+            base_url = _base_url(url)
             await page.goto(base_url, wait_until="networkidle", timeout=60000)
-            
-            # Wait for sorting dropdown to be visible and click 'new' (новые)
-            # This triggers the exact same JS logic as in a real browser
+
             try:
                 await page.wait_for_selector(".kw-select", timeout=10000)
-                # Kwork dropdowns are tricky, let's use the URL with sort=new directly 
-                # but ensure we wait for the state to stabilize
                 await page.goto(url, wait_until="networkidle", timeout=60000)
-                await asyncio.sleep(2) 
-            except:
-                pass
+                await asyncio.sleep(2)
+            except PlaywrightTimeout:
+                logger.warning("Sorting selector not found, proceeding with direct URL")
 
             content = await page.content()
             return content
@@ -46,6 +50,29 @@ class KworkParser:
             return None
         finally:
             await page.close()
+
+    @staticmethod
+    def _extract_time_left(item):
+        from datetime import datetime, timezone
+        date_stop = item.get("dateStop") or item.get("date_stop")
+        if date_stop:
+            try:
+                deadline = datetime.fromisoformat(str(date_stop).replace("Z", "+00:00"))
+                now = datetime.now(timezone.utc)
+                delta = deadline - now
+                if delta.total_seconds() <= 0:
+                    return "Истекло"
+                days = delta.days
+                hours = delta.seconds // 3600
+                if days > 0:
+                    return f"{days} дн. {hours} ч."
+                return f"{hours} ч."
+            except (ValueError, TypeError):
+                pass
+        remaining = item.get("remainingTime") or item.get("remaining_time") or item.get("timeLeft")
+        if remaining:
+            return str(remaining)
+        return "Актуально"
 
     def parse_orders(self, html):
         if not html:
@@ -90,7 +117,7 @@ class KworkParser:
                         budget = f"{int(float(price_limit))} ₽" if price_limit else "Не указан"
                         budget_limit = f"{int(float(higher_price))} ₽" if higher_price else "Не указан"
                         
-                        time_left = "Актуально"
+                        time_left = self._extract_time_left(item)
                         offers_count = str(item.get("offersCount", 0))
                         url = f"https://kwork.ru/projects/{order_id}"
 
