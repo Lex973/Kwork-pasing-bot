@@ -5,7 +5,7 @@ async def run():
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
-        await page.goto("https://kwork.ru/projects?c=11")
+        await page.goto("https://kwork.ru/projects?c=15")
         
         # Capture the HTML of the sorting dropdown area
         # Usually it's in a div with some specific class

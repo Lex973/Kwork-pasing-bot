@@ -5,7 +5,7 @@ async def run():
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
-        await page.goto("https://kwork.ru/projects?c=11")
+        await page.goto("https://kwork.ru/projects?c=15")
         print(f"Base URL: {page.url}")
         
         # Look for the sorting dropdown or active sort

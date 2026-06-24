@@ -8,7 +8,7 @@ async def audit():
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36")
         
-        url = "https://kwork.ru/projects?c=11&view=0&sort=new"
+        url = "https://kwork.ru/projects?c=15&view=0&sort=new"
         print(f"Loading URL: {url}")
         await page.goto(url, wait_until="networkidle")
         await page.wait_for_selector(".want-card", timeout=15000)

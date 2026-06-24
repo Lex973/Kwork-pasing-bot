@@ -25,7 +25,7 @@ class KworkParser:
         page = await self.context.new_page()
         try:
             # Go to base category URL first
-            base_url = "https://kwork.ru/projects?c=11"
+            base_url = "https://kwork.ru/projects?c=15"
             await page.goto(base_url, wait_until="networkidle", timeout=60000)
             
             # Wait for sorting dropdown to be visible and click 'new' (новые)
